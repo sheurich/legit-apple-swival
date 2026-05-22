@@ -13,6 +13,15 @@
 
 set -euo pipefail
 
+# SSH sessions don't inherit container env vars. Source SWIVAL_* from the
+# file written by the entrypoint at container start.
+if [[ -r /etc/swival.env ]]; then
+  set -a
+  # shellcheck source=/dev/null
+  source /etc/swival.env
+  set +a
+fi
+
 old_rev=$1
 new_rev=$2
 
@@ -31,6 +40,9 @@ swival \
   --max-review-rounds 3 \
   --no-instructions \
   --no-skills \
+  ${SWIVAL_BASE_URL:+--base-url "$SWIVAL_BASE_URL"} \
+  ${SWIVAL_PROVIDER:+--provider "$SWIVAL_PROVIDER"} \
+  ${SWIVAL_MODEL:+--model "$SWIVAL_MODEL"} \
   "Inspect the codebase for TODO/FIXME comments, obvious correctness issues, and
 clarity problems. Fix each one with a focused, atomic commit. Commit subject lines:
 imperative mood, ≤72 chars. Do not add dependencies. Do not make speculative

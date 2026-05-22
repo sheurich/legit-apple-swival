@@ -66,8 +66,18 @@ RUN chown -R git:git /home/git
 
 # Install uv system-wide, then install swival where all users can reach it
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh && \
-    UV_TOOL_BIN_DIR=/usr/local/bin uv tool install swival && \
+    UV_TOOL_BIN_DIR=/usr/local/bin \
+    UV_TOOL_DIR=/opt/uv-tools \
+    UV_PYTHON_INSTALL_DIR=/opt/uv-python \
+    uv tool install swival && \
+    chmod -R a+rX /opt/uv-tools /opt/uv-python && \
     swival --version
+
+# Wrap the entrypoint to export SWIVAL_* env vars to a file readable by
+# all users, so SSH-spawned hook processes can source them.
+RUN mv /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-entrypoint-orig.sh
+COPY swival-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Declare volumes
 VOLUME ["/home/git/.ssh", "/etc/ssh/ssh_host_keys"]

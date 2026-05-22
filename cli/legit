@@ -15,6 +15,14 @@ SWIVAL_ENV_ARGS=()
 [[ -n "${ANTHROPIC_API_KEY:-}" ]] && SWIVAL_ENV_ARGS+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
 [[ -n "${OPENAI_API_KEY:-}" ]]    && SWIVAL_ENV_ARGS+=(-e "OPENAI_API_KEY=${OPENAI_API_KEY}")
 
+# Swival base URL: default to the host gateway so the container can reach
+# a LiteLLM/proxy running on the host. Override with SWIVAL_BASE_URL env var.
+HOST_GATEWAY="192.168.64.1"
+SWIVAL_BASE_URL="${SWIVAL_BASE_URL:-http://${HOST_GATEWAY}:4000}"
+SWIVAL_ENV_ARGS+=(-e "SWIVAL_BASE_URL=${SWIVAL_BASE_URL}")
+[[ -n "${SWIVAL_PROVIDER:-}" ]] && SWIVAL_ENV_ARGS+=(-e "SWIVAL_PROVIDER=${SWIVAL_PROVIDER}")
+[[ -n "${SWIVAL_MODEL:-}" ]]    && SWIVAL_ENV_ARGS+=(-e "SWIVAL_MODEL=${SWIVAL_MODEL}")
+
 # Parse arguments
 INTERACTIVE=false
 while [[ $# -gt 0 ]]; do
@@ -70,8 +78,6 @@ RUN_MODE=$([[ "$INTERACTIVE" == "true" ]] && echo "-it" || echo "-d")
 container run --rm "$RUN_MODE" \
     --name "$CONTAINER_NAME" \
     -p "${SSH_PORT}:22" \
-    -e GIT_USER_UID="$(id -u)" \
-    -e GIT_USER_GID="$(id -g)" \
     "${SWIVAL_ENV_ARGS[@]+"${SWIVAL_ENV_ARGS[@]}"}" \
     -v "${AUTH_KEYS}:/root/git_authorized_keys:ro" \
     -v "${HOST_KEYS_DIR}:/etc/ssh/ssh_host_keys" \
