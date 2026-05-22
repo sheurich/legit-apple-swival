@@ -64,7 +64,7 @@ RUN chown -R git:git /home/git
 # --- Swival additions ---
 
 # Install uv system-wide, then install swival where all users can reach it
-RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local sh && \
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh && \
     uv tool install swival --tool-dir /usr/local/bin && \
     swival --version
 
