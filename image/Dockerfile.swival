@@ -8,6 +8,7 @@ RUN apt-get update && \
         ca-certificates \
         wget \
         build-essential \
+        golang \
         tmux \
         less \
         procps \
@@ -65,7 +66,7 @@ RUN chown -R git:git /home/git
 
 # Install uv system-wide, then install swival where all users can reach it
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh && \
-    uv tool install swival --tool-dir /usr/local/bin && \
+    UV_TOOL_BIN_DIR=/usr/local/bin uv tool install swival && \
     swival --version
 
 # Declare volumes
