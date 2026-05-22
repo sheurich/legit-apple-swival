@@ -2,12 +2,18 @@
 set -euo pipefail
 
 # Configuration
-IMAGE="${LEGIT_IMAGE:-ghcr.io/aquanauts/legit-server:latest}"
+IMAGE="${LEGIT_IMAGE:-ghcr.io/sheurich/legit-apple-swival:latest}"
 SSH_PORT="${LEGIT_SSH_PORT:-2222}"
 LEGIT_HOME="${LEGIT_HOME:-${HOME}/.legit}"
 HOST_KEYS_DIR="${LEGIT_HOME}/host_keys"
 AUTH_KEYS="${LEGIT_AUTHORIZED_KEYS:-${HOME}/.ssh/authorized_keys}"
 CONTAINER_NAME="legit-server-${SSH_PORT}"
+
+# Swival provider keys (pass whichever is set in the environment)
+SWIVAL_ENV_ARGS=()
+[[ -n "${GEMINI_API_KEY:-}" ]]    && SWIVAL_ENV_ARGS+=(-e "GEMINI_API_KEY=${GEMINI_API_KEY}")
+[[ -n "${ANTHROPIC_API_KEY:-}" ]] && SWIVAL_ENV_ARGS+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
+[[ -n "${OPENAI_API_KEY:-}" ]]    && SWIVAL_ENV_ARGS+=(-e "OPENAI_API_KEY=${OPENAI_API_KEY}")
 
 # Parse arguments
 INTERACTIVE=false
@@ -31,24 +37,28 @@ if [[ ! -f "$AUTH_KEYS" ]]; then
     exit 1
 fi
 
-if ! command -v docker &>/dev/null; then
-    echo "Error: Docker is not installed" >&2
+if ! command -v container &>/dev/null; then
+    echo "Error: Apple container CLI not installed (brew install container)" >&2
     exit 1
 fi
 
 # Parse LEGIT_MOUNT_DIRS and optional args
-OPTIONAL_DOCKER_ARGS=()
+EXTRA_ARGS=()
 if [ -n "${LEGIT_MOUNT_DIRS:-}" ]; then
     IFS=':' read -ra DIRS <<< "$LEGIT_MOUNT_DIRS"
     for dir in "${DIRS[@]}"; do
         if [ -d "$dir" ]; then
             basename=$(basename "$dir")
-            OPTIONAL_DOCKER_ARGS+=("-v" "${dir}:/home/git/${basename}")
+            EXTRA_ARGS+=("-v" "${dir}:/home/git/${basename}")
         else
             echo "Warning: $dir does not exist, skipping mount" >&2
         fi
     done
 fi
+
+# Mount host swival config (profiles, memory) if present
+SWIVAL_CONFIG="${HOME}/.config/swival"
+[[ -d "$SWIVAL_CONFIG" ]] && EXTRA_ARGS+=("-v" "${SWIVAL_CONFIG}:/home/git/.config/swival:ro")
 
 # Create required directories
 mkdir -p "$HOST_KEYS_DIR"
@@ -57,13 +67,13 @@ mkdir -p "$HOST_KEYS_DIR"
 RUN_MODE=$([[ "$INTERACTIVE" == "true" ]] && echo "-it" || echo "-d")
 
 # Run container
-docker run --rm "$RUN_MODE" \
-    --platform linux/amd64 \
+container run --rm "$RUN_MODE" \
     --name "$CONTAINER_NAME" \
     -p "${SSH_PORT}:22" \
     -e GIT_USER_UID="$(id -u)" \
     -e GIT_USER_GID="$(id -g)" \
+    "${SWIVAL_ENV_ARGS[@]+"${SWIVAL_ENV_ARGS[@]}"}" \
     -v "${AUTH_KEYS}:/root/git_authorized_keys:ro" \
     -v "${HOST_KEYS_DIR}:/etc/ssh/ssh_host_keys" \
-    "${OPTIONAL_DOCKER_ARGS[@]+"${OPTIONAL_DOCKER_ARGS[@]}"}" \
+    "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}" \
     "$IMAGE"

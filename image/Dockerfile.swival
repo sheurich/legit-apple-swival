@@ -1,0 +1,8 @@
+FROM ghcr.io/aquanauts/legit-server:latest
+
+# Install uv system-wide, then use it to install swival into /usr/local/bin
+# so all users (including git) can invoke it without PATH gymnastics.
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local sh && \
+    uv tool install swival --tool-dir /usr/local/bin
+
+RUN swival --version
